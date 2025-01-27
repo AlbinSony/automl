@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Machine Learning Model</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .container {
+            margin-top: 50px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        #model-info, #prediction-result {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Upload CSV and Train Model</h2>
+        
+        <!-- Upload CSV Form -->
+        <form id="csv-upload-form" enctype="multipart/form-data">
+            <div class="form-group">
+                <label for="csv-file">Choose CSV File:</label>
+                <input type="file" class="form-control" id="csv-file" name="file" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Upload CSV</button>
+        </form>
+        
+        <!-- Parameters and Model Training -->
+        <div id="model-info" class="mt-4">
+            <h3>Parameters</h3>
+            <div class="form-group">
+                <label for="target-column">Target Column:</label>
+                <input type="text" class="form-control" id="target-column" placeholder="Enter target column name">
+            </div>
+            <button id="train-model" class="btn btn-success">Train Model</button>
+        </div>
+
+        <!-- Prediction Section -->
+        <div id="prediction-form" class="mt-4" style="display:none;">
+            <h3>Classify New Data</h3>
+            <div class="form-group">
+                <label for="feature-1">Feature 1:</label>
+                <input type="text" class="form-control" id="feature-1" placeholder="Enter feature 1 value">
+            </div>
+            <div class="form-group">
+                <label for="feature-2">Feature 2:</label>
+                <input type="text" class="form-control" id="feature-2" placeholder="Enter feature 2 value">
+            </div>
+            <button id="predict" class="btn btn-info">Predict</button>
+        </div>
+
+        <!-- Prediction Result -->
+        <div id="prediction-result" class="mt-4">
+            <h3>Prediction Result:</h3>
+            <p id="prediction-output"></p>
+        </div>
+
+        <!-- Download Model -->
+        <div id="download-model" class="mt-4" style="display:none;">
+            <h3>Download Trained Model</h3>
+            <a href="#" id="download-link" class="btn btn-danger">Download Model</a>
+        </div>
+
+        <div id="error-message" class="mt-4 text-danger" style="display:none;"></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            // Upload CSV File
+            let gcsUri; // Declare this in a broader scope
+
+// Modify upload success handler
+$("#csv-upload-form").submit(function(e) {
+    e.preventDefault();
+    let formData = new FormData(this);
+    
+    $.ajax({    
+        url: '/upload_csv',
+        type: 'POST',
+        data: formData,
+        contentType: false,
+        processData: false,
+        success: function(response) {
+            if (response.gcs_uri) {
+                gcsUri = response.gcs_uri; // Store the actual GCS URI
+                $("#model-info").show();
+            }
+        },
+        error: function(xhr) {
+            $("#error-message").text(xhr.responseJSON.error).show();
+        }
+    });
+});
+
+            // Train Model
+            $("#train-model").click(function() {
+    let targetColumn = $("#target-column").val();
+    if (!targetColumn) {
+        $("#error-message").text("Target column is required").show();
+        return;
+    }
+
+    $.ajax({
+        url: '/train_model',
+        type: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            gcs_uri: gcsUri, // Use the stored GCS URI
+            target_column: targetColumn
+        }),
+        success: function(response) {
+            $("#prediction-form").show();
+            $("#download-model").show();
+        },
+        error: function(xhr) {
+            $("#error-message").text(xhr.responseJSON.error).show();
+        }
+    });
+});
+
+            // Predict
+            $("#predict").click(function() {
+                let feature1 = $("#feature-1").val();
+                let feature2 = $("#feature-2").val();
+                
+                if (!feature1 || !feature2) {
+                    $("#error-message").text("Please enter both feature values").show();
+                    return;
+                }
+
+                $.ajax({
+                    url: '/predict',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        model_id: "your_model_id_here",  // Replace with actual model ID
+                        input_data: { feature_1: feature1, feature_2: feature2 }
+                    }),
+                    success: function(response) {
+                        let predictions = response.predictions.join(", ");
+                        $("#prediction-output").text(predictions);
+                        $("#prediction-result").show();
+                    },
+                    error: function(xhr) {
+                        $("#error-message").text(xhr.responseJSON.error).show();
+                    }
+                });
+            });
+
+            // Download Model
+            $("#download-link").click(function() {
+                // Implement the logic to download the model file here
+                window.location.href = "/path_to_download_model";  // Adjust with actual path
+            });
+        });
+    </script>
+</body>
+</html>
